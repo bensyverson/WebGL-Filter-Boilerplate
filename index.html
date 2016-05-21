@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+	<canvas id="c" width="512" height="512"></canvas>
+	<script src="webgl-utils.js"></script>
+	<script id="vshader" type="x-shader">
+		attribute vec2 aVertexPosition;
+		varying vec2 vTexCoord;
+		void main() {
+			vTexCoord = aVertexPosition + vec2(0.5);
+			gl_Position = vec4(aVertexPosition, 0, 0.5);
+		}
+	</script>
+	<script id="fshader" type="x-shader">
+		precision mediump float;
+		varying vec2 vTexCoord;
+		uniform sampler2D uSampler;
+		void main() {
+			vec4 inColor = texture2D(uSampler, vTexCoord);
+			// Put image processing code here
+			inColor.xyz *= 2.0;
+
+			gl_FragColor = inColor;
+		}
+	</script>
+	<script>
+		var canvas = document.getElementById('c');
+
+		var gl = null;
+		try {
+			gl = canvas.getContext('webgl');
+		} catch (e) {
+			gl = canvas.getContext('experimental-webgl');
+		}
+		if (!gl) console.log("nope");
+
+		var vertexPosBuffer = screenQuad();
+		var vs = document.getElementById('vshader').textContent;
+		var fs = document.getElementById('fshader').textContent;
+		var program = createProgram(vs,fs);
+		gl.useProgram(program);
+		program.vertexPosAttrib = gl.getAttribLocation(program, 'aVertexPosition');
+		program.samplerUniform = gl.getUniformLocation(program, 'uSampler');
+		gl.enableVertexAttribArray(program.vertexPosAttrib);
+		gl.vertexAttribPointer(program.vertexPosAttrib, vertexPosBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		var texture = gl.createTexture();
+		var img = new Image();
+		img.onload = function() {
+			var ratio = document.getElementsByTagName('body')[0].clientWidth / img.width;
+			var pixelDensity = window.devicePixelRatio || 1;
+			canvas.width = img.width * ratio * pixelDensity;
+			canvas.height = img.height * ratio * pixelDensity;
+			canvas.style.width = (canvas.width / pixelDensity) + 'px';
+			canvas.style.height = (canvas.height / pixelDensity) + 'px';
+		   	gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+			gl.activeTexture(gl.TEXTURE0);
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.uniform1i(program.samplerUniform, 0);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertexPosBuffer.numItems);
+		};
+		img.src = 'coconuts.jpg';
+	</script>
+</html>
